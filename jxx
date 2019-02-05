@@ -1,0 +1,93 @@
+#!/bin/bash
+
+NGINX_CLASS="nginx"
+JX_CMD="jx"
+
+function usage() {
+    echo Configure a custom values files and runs JX
+    echo All options after -- are passed directly to jx
+    echo
+    echo Options:
+    echo    --nginx-class=nginx: The ingress nginx class
+    echo    -h or --help: Shows this message
+    echo    -j or --jx=jx: Uses the provided jx executable
+    echo
+    echo Example:
+    echo $0 --nginx-class=nginx-internal -- install --ingress-service=...
+}
+
+function validateJX()
+{
+    ${JX_CMD} install --help | grep include-values-files 2>&1 >/dev/null
+    if [ $?  != 0 ]; then
+        echo Error: ${JX_CMD} does not support include-values-files flag. >&2
+        exit 1
+    fi
+}
+
+# Store JX options
+JX_OPTIONS=""
+saved=$@
+eval set -- "$@"
+while true; do
+    case "$1" in
+        "")
+            break
+            ;;
+        --)
+            shift;
+            break
+            ;;
+        *)
+            shift;
+    esac
+done
+JX_OPTIONS=$@
+
+# Get options to create temp yaml
+set -- $saved
+options=$(getopt -o "hj:n:" --longoptions help,jx:,nginx-class: -- "$@")
+[ $? -eq 0 ] || { 
+    echo "Incorrect options provided"
+    exit 1
+}
+eval set -- "$options"
+while true; do
+    case "$1" in
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    --nginx-class)
+        shift; # The arg is next in position args
+        NGINX_CLASS=$1
+        ;;
+    -j|--jx)
+        shift;
+        JX_CMD=$1
+        ;;
+    --)
+        shift
+        break
+        ;;
+    esac
+    shift
+done
+
+validateJX
+
+# Create temp yaml
+TEMP_YML=`mktemp --suffix=.ymlXXX`
+cat <<EOF >$TEMP_YML
+jenkins:
+  Master:
+    ServiceAnnotations:
+      fabric8.io/ingress.annotations: "kubernetes.io/ingress.class: ${NGINX_CLASS}\nnginx.ingress.kubernetes.io/proxy-body-size: 500m"
+EOF
+
+# Run jx
+echo Passing JX generated values file: $TEMP_YML
+$JX_CMD $JX_OPTIONS --include-values-files=${TEMP_YML}
+rm $TEMP_YML
+
+exit 0;

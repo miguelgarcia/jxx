@@ -1,0 +1,1 @@
+./jxx --jx=./build/jx --nginx-class=nginx-internal -- install --ingress-service=nginx-ingress-controller-internal-controller --ingress-deployment=nginx-ingress-controller-internal-controller --ingress-namespace=nginx-ingress-internal --provider=aws
