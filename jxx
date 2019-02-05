@@ -18,6 +18,11 @@ function usage() {
 
 function validateJX()
 {
+    if ! [ -x "$(command -v ${JX_CMD})" ]; then
+        echo Error: jx not found. >&2
+        exit 1
+    fi
+
     ${JX_CMD} install --help | grep include-values-files 2>&1 >/dev/null
     if [ $?  != 0 ]; then
         echo Error: ${JX_CMD} does not support include-values-files flag. >&2
@@ -42,7 +47,12 @@ while true; do
             shift;
     esac
 done
-JX_OPTIONS=$@
+JX_OPTIONS="$@"
+
+if [ -z $JX_OPTIONS ]; then
+    echo No options for jx provided >&2
+    exit 1
+fi
 
 # Get options to create temp yaml
 set -- $saved
